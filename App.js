@@ -1,49 +1,120 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow
- */
+import React, { useState, useEffect } from 'react';
+import { Text, View, PermissionsAndroid, FlatList, TouchableHighlight } from 'react-native';
+import wifi from 'react-native-android-wifi';
 
-import React, {Component} from 'react';
-import {Platform, StyleSheet, Text, View} from 'react-native';
+const App = () => {
+  const [wifiList, setWifiList] = useState([]);
+  const [permissionGranted, setPermissionGranted] = useState(false);
 
-const instructions = Platform.select({
-  ios: 'Press Cmd+R to reload,\n' + 'Cmd+D or shake for dev menu',
-  android:
-    'Double tap R on your keyboard to reload,\n' +
-    'Shake or press menu button for dev menu',
-});
+  useEffect(() => {
+    handlePermissionsAndroid();
 
-type Props = {};
-export default class App extends Component<Props> {
-  render() {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.welcome}>Welcome to React Native!</Text>
-        <Text style={styles.instructions}>To get started, edit App.js</Text>
-        <Text style={styles.instructions}>{instructions}</Text>
-      </View>
+    return () => null;
+  }, []);
+
+  useEffect(() => {
+    if (permissionGranted) {
+      handleGetWifiList();
+    }
+
+    return () => null;
+  }, [permissionGranted]);
+
+  const handlePermissionsAndroid = async () => {
+    try {
+      const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION, {
+        'title': 'Wifi networks',
+        'message': 'We need your permission in order to find wifi networks'
+      });
+
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        setPermissionGranted(true);
+      } else {
+        console.log("You will not able to retrieve wifi available networks list");
+      }
+    } catch (err) {
+      console.warn(err)
+    }
+  }
+
+  const handleGetWifiList = () => {
+    wifi.loadWifiList((wifiStringList) => {
+      const wifiArray = JSON.parse(wifiStringList);
+      setWifiList(wifiArray);
+    }, (error) => {
+        console.log(error);
+      }
     );
+  }
+
+  return (
+    <View style={[styles.view, { paddingBottom: 20 }]}>
+      <Text style={styles.textTitle}>ABP - Comunicação de dados</Text>
+
+      <TouchableHighlight style={styles.buttonPermission} disabled={permissionGranted} onPress={handlePermissionsAndroid}>
+        <Text style={styles.textPermission}>Permissão</Text>
+      </TouchableHighlight>
+
+
+      <View>
+        {((wifiList) && (wifiList.length > 0)) ? (
+          <FlatList
+            style={styles.flatList}
+            contentContainerStyle={styles.contentContainerStyle}
+            data={wifiList.sort((a, b) => b.level - a.level)}
+            renderItem={({ item, index }) => (
+              <View style={styles.item}>
+                <Text style={styles.view}>{item['SSID']}</Text>
+                <Text>Level: {item.level}</Text>
+              </View>
+            )}
+            keyExtractor={(item, index) => `${item['SSID']}-${index}`}
+          />
+        ) : ((permissionGranted) ? (
+          <Text>Carregando Lista</Text>
+        ) : (
+          <Text>Sem permissão</Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = {
+  view: {
+    flex: 1,
+  },
+  textTitle: {
+    flex: 0,
+    textAlign: 'center',
+    backgroundColor: 'red',
+  },
+  buttonPermission: {
+    backgroundColor: 'lightblue',
+    padding: 10,
+    width: '50%',
+    alignSelf: 'center',
+    marginTop: 20,
+    marginBottom: 20,
+    alignItems: 'center'
+  },
+  textPermission: {
+    textAlign: 'center',
+    alignSelf: 'center'
+  },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 5,
+    backgroundColor: 'lightgrey',
+    padding: 5,
+    paddingHorizontal: 15,
+  },
+  flatList: {
+  },
+  contentContainerStyle: {
+    paddingBottom: 250,
   }
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5FCFF',
-  },
-  welcome: {
-    fontSize: 20,
-    textAlign: 'center',
-    margin: 10,
-  },
-  instructions: {
-    textAlign: 'center',
-    color: '#333333',
-    marginBottom: 5,
-  },
-});
+export default App;
